@@ -2,6 +2,7 @@ package entity
 
 import (
 	"errors"
+	"time"
 
 	"github.com/felipefabricio/golang-rest-api/pkg/entity"
 )
@@ -18,17 +19,24 @@ type Product struct {
 	ID          entity.ID `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	Price       int       `json:"price"`
-	CreatedAt   string    `json:"created_at"`
+	Price       float64   `json:"price"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
-func (p *Product) NewProduct(name, description string, price int) (*Product, error) {
-	return &Product{
+func NewProduct(name, description string, price float64) (*Product, error) {
+	product := &Product{
 		ID:          entity.NewID(),
 		Name:        name,
 		Description: description,
 		Price:       price,
-	}, nil
+		CreatedAt:   time.Now(),
+	}
+
+	err := product.Validate()
+	if err != nil {
+		return nil, err
+	}
+	return product, nil
 }
 
 func (p *Product) Validate() error {
