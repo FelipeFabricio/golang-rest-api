@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -46,29 +45,29 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProductHandler) GetAllProducts(w http.ResponseWriter, r *http.Request) {
-	//Pegar os parametros do request
-	page, err := strconv.Atoi(chi.URLParam(r, "page"))
+	page := r.URL.Query().Get("page")
+	limit := r.URL.Query().Get("limit")
+	sort := r.URL.Query().Get("sort")
+
+	pageInt, err := strconv.Atoi(page)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		pageInt = 0
 	}
 
-	// sort := chi.URLParam(r, "sort")
+	limitInt, err := strconv.Atoi(limit)
+	if err != nil {
+		limitInt = 10
+	}
 
-	//Chamar o FindAll no Repository
-	products, err := h.ProductDB.FindAllProducts(page, 10, "name")
+	products, err := h.ProductDB.FindAllProducts(pageInt, limitInt, sort)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	//Encodar a lista de produtos retornada
-	productsDecoded, err := json.Marshal(&products)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-	}
-
-	//Retornar o resultado
-	w.Write(productsDecoded)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(products)
 }
 
 func (h *ProductHandler) GetProductById(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +91,6 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		log.Fatal("Não foi informado o Id")
 		return
 	}
 
@@ -100,14 +98,12 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&product)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		log.Fatal(err)
 		return
 	}
 
 	product.ID, err = entityPkg.ParseID(id)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		log.Fatal(err)
 		return
 	}
 
@@ -120,7 +116,27 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	err = h.ProductDB.Update(&product)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Fatal(err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	_, err := h.ProductDB.FindById(id)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	err = h.ProductDB.Delete(id)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
